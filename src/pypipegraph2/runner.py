@@ -220,7 +220,7 @@ class Runner:
         self.next_job_number += 1
         self.jobs[cleanup_job.job_id] = cleanup_job
         dag.add_node(cleanup_job.job_id)
-        log_debug(f"creating cleanup {cleanup_job.job_id}")
+        log_trace(f"creating cleanup {cleanup_job.job_id}")
         for o in cleanup_job.outputs:
             log_trace(f"Storing cleanup oututs_to_job_ids {o} = {cleanup_job.job_id}")
             self.outputs_to_job_ids[o] = cleanup_job.job_id
