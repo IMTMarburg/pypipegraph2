@@ -694,6 +694,29 @@ class TestMultiFileGeneratingJob:
             assert read(f) == "shu"
         assert read(of[-1]) == ""
 
+    def test_empty_ok_some_files(self):
+        of = ["out/a", "out/b"]
+
+        def do_write(of):
+            for f in of:
+                append(f, "shu")
+            write(f, "")  # one is empty
+        ppg.MultiFileGeneratingJob(of, do_write, empty_ok=[of[1]])
+        ppg.run()
+        for f in of[:-1]:
+            assert read(f) == "shu"
+        assert read(of[-1]) == ""
+
+        with pytest.raises(ValueError):
+            ppg.MultiFileGeneratingJob(of, do_write, empty_ok=None)
+
+        with pytest.raises(ValueError):
+            ppg.MultiFileGeneratingJob(of, do_write, empty_ok=of[1])
+
+        with pytest.raises(KeyError):
+            ppg.MultiFileGeneratingJob(of, do_write, empty_ok=["some_other_file.txt"])
+
+
     def test_exception_destroys_no_files(self):
         of = ["out/a", "out/b"]
 

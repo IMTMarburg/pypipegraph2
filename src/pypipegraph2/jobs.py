@@ -581,6 +581,16 @@ class MultiFileGeneratingJob(Job):
         self.org_files = self.files
         Job.__init__(self, [str(x) for x in self.files], resources)
         self._single_file = False
+        if isinstance(empty_ok, bool):
+            pass
+        elif isinstance(empty_ok, (list, set)):
+            empty_ok = set([_normalize_path(Path(x)) for x in empty_ok])
+            if empty_ok.difference(self.files):
+                raise KeyError("passed a file to empty_ok that was not in files")
+        else:
+            raise ValueError(
+                "empty files must be True/False, or a set/list of files that may be empty"
+            )
         self.empty_ok = empty_ok
         self.always_capture_output = always_capture_output
         self.stdout = "not captured"
@@ -905,12 +915,20 @@ class MultiFileGeneratingJob(Job):
             raise exceptions.JobContractError(
                 f"Job {self.job_id} did not create the following files: {[str(x) for x in missing_files]}"
             )
-        if not self.empty_ok:
-            empty_files = [x for x in self.files if x.stat().st_size == 0]
-            if empty_files:
-                raise exceptions.JobContractError(
-                    f"Job {self.job_id} created empty files and empty_ok was False: {[str(x) for x in empty_files]}"
-                )
+        if self.empty_ok is True:
+            empty_files = []
+        else:
+            empty_files = [
+                x
+                for x in self.files
+                if x.stat().st_size == 0
+                if not self.empty_ok or (not x in self.empty_ok)
+            ]
+
+        if empty_files:
+            raise exceptions.JobContractError(
+                f"Job {self.job_id} created empty files and empty_ok was False / this file was not in empty_ok: {[str(x) for x in empty_files]}"
+            )
         res = {
             str(of): hashers.hash_file(self._map_filename(of)) for of in self.org_files
         }
@@ -1347,7 +1365,10 @@ class FunctionInvariant(_InvariantMixin, Job, _FileInvariantMixin):
             if function.__doc__:
                 for prefix in ['"""', "'''", '"', "'"]:
                     if prefix + function.__doc__ + prefix in source:
-                        source = source.replace(prefix + function.__doc__ + prefix, "",)
+                        source = source.replace(
+                            prefix + function.__doc__ + prefix,
+                            "",
+                        )
 
             global_pipegraph.func_cache[key] = source
         return source
@@ -1940,7 +1961,9 @@ def CachedDataLoadingJob(
     )
 
     load_job = DataLoadingJob(
-        "load_" + cache_job.job_id, load, depend_on_function=depend_on_function,
+        "load_" + cache_job.job_id,
+        load,
+        depend_on_function=depend_on_function,
     )
     load_job.depends_on(cache_job)
     # do this after you have sucessfully created both jobs
